@@ -20,7 +20,8 @@ function Home() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('http://127.0.0.1:8002/api/students');
+        //const response = await axios.get('http://127.0.0.1:8002/api/students');
+        const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/students`);
         console.log(Array.isArray(response.data));
         console.log(response.headers.get('content-type'));
         console.log(response.data);
