@@ -11,8 +11,8 @@ RUN pip install --no-cache-dir --upgrade -r /testapp/requirements.txt
 
 # Copy the application folder into the container
 COPY ./src /testapp/src
-COPY ./.env /testapp
-COPY ./.env /testapp/src/
+#COPY ./.env /testapp
+#COPY ./.env /testapp/src/
 
 # Run the FastAPI application using the official 'fastapi run' command
 CMD ["python",  "/testapp/src/main.py"] 
