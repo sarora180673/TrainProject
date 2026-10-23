@@ -3,7 +3,7 @@ import os
 from dotenv import dotenv_values
 from pymongo import MongoClient
 
-base_dir = Path(__file__).resolve().parent
+base_dir = Path(__file__).resolve().parent.parent
 config = dotenv_values(base_dir / ".env")
 if not config:
     config = dotenv_values(base_dir.parent / ".env")
