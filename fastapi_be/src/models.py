@@ -13,9 +13,14 @@ class Address(BaseModel):
     country: str
 
 class Student(BaseModel):
+    username: str
+    hashed_password: str
+    email: EmailStr
+    is_active: bool = True
     name: str
     age: int
     address: Address
+
 
 class Book(BaseModel):
    bookID: int

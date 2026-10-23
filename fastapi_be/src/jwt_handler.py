@@ -1,23 +1,27 @@
 from datetime import datetime, timedelta
+from pathlib import Path
+import os
+
+from dotenv import dotenv_values
 from jose import jwt, JWTError
 
-SECRET_KEY = "your-secret-key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+base_dir = Path(__file__).resolve().parent
+config = dotenv_values(base_dir / ".env")
+if not config:
+    config = dotenv_values(base_dir.parent / ".env")
 
-def create_access_token(data: dict, expires_delta: timedelta = None):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=15))
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+SECRET_KEY = config.get("SECRET_KEY") or os.getenv("SECRET_KEY")
+ALGORITHM = config.get("ALGORITHM") or os.getenv("ALGORITHM")
 
-def verify_token(token: str, credentials_exception):
+def create_access_token(data: dict, expires_minutes: int = 30):
+    data_copy = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=expires_minutes)
+    data_copy.update({"exp": expire})
+    return jwt.encode(data_copy, SECRET_KEY, algorithm=ALGORITHM)
+
+def verify_token(token: str):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("user_id")
-        if user_id is None:
-            raise credentials_exception
-        return user_id
+        return payload
     except JWTError:
-        raise credentials_exception
+        return None              

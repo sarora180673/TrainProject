@@ -9,7 +9,10 @@ services:
       DATABASE_URI: mongodb://${MONGO_USER}:${MONGO_PASS}@mongo:27017/?authSource=${MONGO_USER} 
       MONGO_USER: ${MONGO_USER}  
       MONGO_PASS: ${MONGO_PASS} 
-      DB_NAME: ${DB_NAME} 
+      DB_NAME: ${DB_NAME}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM}
+
     ports:
       - 8002:8002
     depends_on:
@@ -24,7 +27,7 @@ services:
     environment:
       PRODUCTION: "false"
     ports:
-      - 5173:5173
+      - 8083:8083
     depends_on:
       - mongo
     networks:
