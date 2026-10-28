@@ -1,17 +1,21 @@
 from datetime import datetime, timedelta
 from pathlib import Path
 import os
-
 from dotenv import dotenv_values
 from jose import jwt, JWTError
 
-base_dir = Path(__file__).resolve().parent
+base_dir = Path(__file__).resolve().parent.parent
 config = dotenv_values(base_dir / ".env")
 if not config:
     config = dotenv_values(base_dir.parent / ".env")
 
 SECRET_KEY = config.get("SECRET_KEY") or os.getenv("SECRET_KEY")
 ALGORITHM = config.get("ALGORITHM") or os.getenv("ALGORITHM")
+
+if not SECRET_KEY:
+    raise RuntimeError("SECRET_KEY is missing. Set it in .env or as an environment variable.")
+if not ALGORITHM:
+    raise RuntimeError("ALGORITHM is missing. Set it in .env or as an environment variable.")
 
 def create_access_token(data: dict, expires_minutes: int = 30):
     data_copy = data.copy()

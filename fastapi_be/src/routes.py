@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Path, Query, Body, Request, Response, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from bson import ObjectId
-from models import Tea, Address, Student, UserInDB, UserOut, Book
+from models import Tea, Address, Student, UserInDB, UserOut, Book, StudentPublic
 from typing import List
 from pymongo import MongoClient
 from pymongo.errors import ServerSelectionTimeoutError
@@ -13,10 +13,12 @@ import os
 import smtplib
 from email.mime.text import MIMEText
 from datetime import datetime
+from urllib.parse import quote
 
 
 students_collection = database["students"]
 book_collection = database["Books"]
+payments_collection = database["payments"]
 
 router = APIRouter()
 # Use a scheme that works reliably with the installed versions of passlib + bcrypt.
@@ -112,7 +114,7 @@ async def create_student(student: Student):
     new_student = students_collection.find_one({"_id": result.inserted_id}, {"_id": 0})
     return new_student
 
-@router.get("/students", response_model=list[Student])
+@router.get("/students", response_model=list[StudentPublic])
 async def list_students(country: str = None, age: int = None):
     try:
         query = {}
@@ -121,15 +123,20 @@ async def list_students(country: str = None, age: int = None):
         if age:
             query["age"] = {"$gte": age}
         students = list(students_collection.find(query, {"_id": 0}))
-        return students
+        cleaned_students = []
+        for student in students:
+            student.pop("hashed_password", None)
+            cleaned_students.append(student)
+        return cleaned_students
     except ServerSelectionTimeoutError:
         raise HTTPException(status_code=503, detail="Database connection failed. Please try again later.")
 
 
-@router.get("/students/{id}", response_model=Student)
+@router.get("/students/{id}", response_model=StudentPublic)
 async def get_student(id: str):
     student = students_collection.find_one({"_id": ObjectId(id)}, {"_id": 0})
     if student:
+        student.pop("hashed_password", None)
         return student
     else:
         raise HTTPException(status_code=404, detail="Student not found")
@@ -185,3 +192,70 @@ async def create_user(user: Student):
 @router.post("/register", response_model=UserOut)
 async def register_user(user: Student):
     return await create_user(user)
+
+@router.post("/payments/upi")
+def create_upi_payment(
+    payment: dict,
+    current_user: dict = Depends(get_current_user),
+):
+    upi_id = str(payment.get("upi_id", "")).strip()
+    amount = payment.get("amount")
+    currency = str(payment.get("currency", "INR")).upper()
+    purpose = payment.get("purpose", "Training payment")
+
+    if not upi_id or "@" not in upi_id:
+        raise HTTPException(status_code=400, detail="Valid UPI ID is required")
+
+    try:
+        amount_value = float(amount)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Amount must be a valid number")
+
+    if amount_value <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be greater than zero")
+
+    payment_id = f"UPI-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}-{os.urandom(4).hex()}"
+    payer_name = current_user.get("sub", "customer")
+    upi_link = (
+        f"upi://pay?pa={quote(upi_id)}&pn={quote(payer_name)}&am={amount_value}&cu={currency}&tn={quote(purpose)}"
+    )
+
+    payment_record = {
+        "payment_id": payment_id,
+        "user": payer_name,
+        "method": "UPI",
+        "upi_id": upi_id,
+        "amount": amount_value,
+        "currency": currency,
+        "purpose": purpose,
+        "status": "initiated",
+        "gateway_reference": payment_id,
+        "payment_url": upi_link,
+        "created_at": datetime.utcnow(),
+    }
+    payments_collection.insert_one(payment_record)
+
+    return {
+        "status": "initiated",
+        "gateway": "UPI",
+        "payment_id": payment_id,
+        "amount": amount_value,
+        "currency": currency,
+        "payment_url": upi_link,
+        "message": "UPI payment request created successfully",
+    }
+
+
+@router.get("/payments/upi/{payment_id}")
+def get_upi_payment_status(payment_id: str, current_user: dict = Depends(get_current_user)):
+    payment = payments_collection.find_one({"payment_id": payment_id, "user": current_user.get("sub")})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+
+    return {
+        "payment_id": payment["payment_id"],
+        "status": payment["status"],
+        "amount": payment["amount"],
+        "currency": payment["currency"],
+        "upi_id": payment["upi_id"],
+    }

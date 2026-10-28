@@ -22,6 +22,15 @@ class Student(BaseModel):
     address: Address
 
 
+class StudentPublic(BaseModel):
+    username: str
+    email: EmailStr
+    is_active: bool = True
+    name: str
+    age: int
+    address: Address
+
+
 class Book(BaseModel):
    bookID: int
    title: str
