@@ -1,0 +1,9 @@
+# Version control & sensitive configs
+.git
+.gitignore
+.env
+*.pem
+
+# Dependencies & local build artifacts
+node_modules/
+dist/
